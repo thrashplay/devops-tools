@@ -1,0 +1,23 @@
+{
+  "command": {
+    "publish": {
+      "conventionalCommits": true,
+      "message": "chore(publish): Promote latest versions [ci skip]."
+    },
+    "version": {
+      "allowBranch": ["master", "develop"],
+      "conventionalCommits": true
+    }
+  },
+  "ignore-changes": [
+    "**/*.md",
+    "**/*.test.ts",
+    "**/_templates/**"
+  ],
+  "npmClient": "yarn",
+  "useWorkspaces": true,
+  "packages": [
+    "packages/*"
+  ],
+  "version": "independent"
+}

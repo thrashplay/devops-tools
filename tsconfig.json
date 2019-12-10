@@ -1,0 +1,49 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "alwaysStrict": true,
+    "baseUrl": "./packages",
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSourceMap": true,
+    "isolatedModules": false,
+    "jsx": "preserve",
+    "lib": ["es2017"],
+    "listEmittedFiles": false,
+    "listFiles": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "noErrorTruncation": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "paths": {
+      "@thrashplay/*": ["*/src"]
+    },
+    "pretty": true,
+    "resolveJsonModule": true,
+    "rootDir": "./packages",
+    "skipLibCheck": true,
+    "strict": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "target": "es2017",
+    "traceResolution": false,
+    "types": ["jest", "node"]
+  },
+  "exclude": [
+    "**/dist",
+    "**/node_modules/",
+    "**/*.test.ts"
+  ]
+}

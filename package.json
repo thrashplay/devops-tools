@@ -1,0 +1,87 @@
+{
+  "name": "@thrashplay/monorepo-template",
+  "version": "0.0.1",
+  "description": "Monorepo template project.",
+  "author": "Sean Kleinjung",
+  "license": "MIT",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "packages/*"
+    ]
+  },
+  "scripts": {
+    "bootstrap": "yarn lerna bootstrap",
+    "build": "run-s clean build:ts-config build:bundle",
+    "build:ts-config": "lerna exec --stream -- node ../../scripts/create-package-tsconfig.js",
+    "build:bundle": "lerna exec --stream -- webpack",
+    "build:dev": "lerna exec --stream -- webpack --env.name dev",
+    "build:watch": "lerna exec --parallel -- webpack --watch --env.name dev",
+    "clean": "rm -rf packages/*/dist",
+    "clean:all": "yarn clean && yarn clean:ts-config && yarn clean:node_modules",
+    "clean:node_modules": "rm -rf node_modules && rm -rf packages/*/node_modules",
+    "clean:ts-config": "rm -f packages/*/tsconfig.json",
+    "lint": "eslint . --ext .ts,.js",
+    "lint:fix": "eslint . --fix --ext .ts,.js",
+    "publish:tagged": "yarn lerna publish from-git",
+    "reset": "yarn clean:all && yarn && yarn bootstrap && yarn build",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
+    "version:graduate": "yarn lerna version --conventional-graduate"
+  },
+  "eslintConfig": {
+    "extends": "airbnb-base"
+  },
+  "husky": {
+    "hooks": {
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS",
+      "pre-commit": "lint-staged",
+      "pre-push": "yarn lint && yarn test"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "yarn lint:fix",
+      "git add",
+      "yarn test --bail --findRelatedTests"
+    ]
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.7.5",
+    "@babel/core": "^7.7.5",
+    "@babel/plugin-proposal-class-properties": "^7.7.4",
+    "@babel/plugin-proposal-export-default-from": "^7.7.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.7.4",
+    "@babel/preset-env": "^7.7.5",
+    "@babel/preset-typescript": "^7.7.4",
+    "@commitlint/cli": "^8.2.0",
+    "@commitlint/config-conventional": "^8.2.0",
+    "@types/node": "^12.12.15",
+    "@typescript-eslint/eslint-plugin": "^2.3.0",
+    "@typescript-eslint/parser": "^2.3.0",
+    "babel-jest": "^24.9.0",
+    "babel-loader": "^8.0.6",
+    "dotenv": "^8.2.0",
+    "eslint": "^6.4.0",
+    "eslint-config-airbnb-base": "^14.0.0",
+    "eslint-plugin-flowtype": "^4.3.0",
+    "eslint-plugin-import": "^2.18.2",
+    "fork-ts-checker-webpack-plugin": "^3.1.1",
+    "glob": "^7.1.6",
+    "husky": "^3.0.5",
+    "jest": "^24.9.0",
+    "lerna": "^3.19.0",
+    "lint-staged": "^9.3.0",
+    "lodash": "^4.17.15",
+    "npm-run-all": "^4.1.5",
+    "shx": "^0.3.2",
+    "ts-jest": "^24.2.0",
+    "ts-loader": "^6.2.1",
+    "tsconfig-paths-webpack-plugin": "^3.2.0",
+    "typescript": "^3.7.3",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "webpack-merge": "^4.2.2"
+  }
+}

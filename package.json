@@ -1,7 +1,7 @@
 {
-  "name": "@thrashplay/monorepo-template",
+  "name": "@thrashplay/devops-tools",
   "version": "0.0.1",
-  "description": "Monorepo template project.",
+  "description": "Utilities, libraries, and tools to help with DevOps operations.",
   "author": "Sean Kleinjung",
   "license": "MIT",
   "private": true,
@@ -11,7 +11,7 @@
     ]
   },
   "scripts": {
-    "bootstrap": "yarn lerna bootstrap",
+    "bootstrap": "yarn lerna bootstrap && yarn build:ts-config",
     "build": "run-s clean build:ts-config build:bundle",
     "build:ts-config": "lerna exec --stream -- node ../../scripts/create-package-tsconfig.js",
     "build:bundle": "lerna exec --stream -- webpack",

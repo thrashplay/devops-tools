@@ -2,7 +2,10 @@
 
 # generated files
 dist
+packages/**/lib
 packages/**/tsconfig.json
+packages/**/src/**/*.d.ts
+packages/**/src/**/*.d.ts.map
 
 # Logs
 logs

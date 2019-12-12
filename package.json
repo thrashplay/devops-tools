@@ -11,16 +11,13 @@
     ]
   },
   "scripts": {
-    "bootstrap": "yarn lerna bootstrap && yarn build:ts-config",
-    "build": "run-s clean build:ts-config build:bundle",
-    "build:ts-config": "lerna exec --stream -- node ../../scripts/create-package-tsconfig.js",
-    "build:bundle": "lerna exec --stream -- webpack",
-    "build:dev": "lerna exec --stream -- webpack --env.name dev",
-    "build:watch": "lerna exec --parallel -- webpack --watch --env.name dev",
-    "clean": "rm -rf packages/*/dist",
-    "clean:all": "yarn clean && yarn clean:ts-config && yarn clean:node_modules",
-    "clean:node_modules": "rm -rf node_modules && rm -rf packages/*/node_modules",
-    "clean:ts-config": "rm -f packages/*/tsconfig.json",
+    "bootstrap": "yarn lerna bootstrap && yarn _build:ts-config",
+    "build": "yarn _build:ts-config && yarn run-p _build:types _build:js",
+    "build:clean": "run-s clean build",
+    "build:dev": "yarn _build:ts-config && yarn run-p _build:types _build:js:dev",
+    "build:watch": "yarn _build:ts-config && yarn run-p _build:watch:js _build:watch:types",
+    "clean": "rm -rf packages/*/dist && rm -rf packages/*/lib && rm -rf packages/*/tsconfig.tsbuildinfo && rm -f tsconfig.tsbuildinfo",
+    "clean:all": "yarn clean && yarn _clean:ts-config && yarn _clean:node_modules",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --fix --ext .ts,.js",
     "publish:tagged": "yarn lerna publish from-git",
@@ -28,7 +25,16 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "test:watch": "jest --watch",
-    "version:graduate": "yarn lerna version --conventional-graduate"
+    "version:graduate": "yarn lerna version --conventional-graduate",
+    "_build:js": "lerna exec --stream -- node ../../build-lib/thrashpack.js",
+    "_build:js:dev": "lerna run --parallel build:dev",
+    "_build:ts-config": "thrasher create-tsconfigs",
+    "_build:types": "tsc --build tsconfig.build-types.json",
+    "_build:watch:js": "lerna exec --parallel -- webpack --watch --env.name dev",
+    "_build:watch:types": "tsc --build tsconfig.build-types.json --watch",
+    "_clean:node_modules": "rm -rf node_modules && rm -rf packages/*/node_modules",
+    "_clean:ts-config": "rm -f packages/*/tsconfig.json",
+    "postinstall": "patch-package"
   },
   "eslintConfig": {
     "extends": "airbnb-base"
@@ -57,11 +63,14 @@
     "@babel/preset-typescript": "^7.7.4",
     "@commitlint/cli": "^8.2.0",
     "@commitlint/config-conventional": "^8.2.0",
+    "@thrashplay/thrasher": "^0.0.0",
+    "@types/jest": "^24.0.23",
     "@types/node": "^12.12.15",
     "@typescript-eslint/eslint-plugin": "^2.3.0",
     "@typescript-eslint/parser": "^2.3.0",
     "babel-jest": "^24.9.0",
     "babel-loader": "^8.0.6",
+    "circular-dependency-plugin": "^5.2.0",
     "dotenv": "^8.2.0",
     "eslint": "^6.4.0",
     "eslint-config-airbnb-base": "^14.0.0",
@@ -75,6 +84,7 @@
     "lint-staged": "^9.3.0",
     "lodash": "^4.17.15",
     "npm-run-all": "^4.1.5",
+    "patch-package": "^6.2.0",
     "shx": "^0.3.2",
     "ts-jest": "^24.2.0",
     "ts-loader": "^6.2.1",
@@ -82,6 +92,7 @@
     "typescript": "^3.7.3",
     "webpack": "^4.41.2",
     "webpack-cli": "^3.3.10",
-    "webpack-merge": "^4.2.2"
+    "webpack-merge": "^4.2.2",
+    "webpack-node-externals": "^1.7.2"
   }
 }

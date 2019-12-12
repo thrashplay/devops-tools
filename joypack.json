@@ -1,0 +1,40 @@
+{
+  "defaultTargets": "browserslist",
+  "moduleType": "es6",
+
+  "distDir": "dist",
+  "libDir": "lib",
+  "sourceDir": "src",
+
+  "defaults": {
+    "defaultFormats": {
+      "library": {
+      },
+      "library-bundle": {
+        "bundle": true,
+        "minify": true
+      },
+      "script": {
+        "shebang": "#!/usr/bin/env node"
+      },
+      "script-bundle": {
+        "bundle": true,
+        "minify": true,
+        "shebang": "#!/usr/bin/env node"
+      }
+    }
+  },
+
+  "input": {
+  },
+
+  "output": {
+    "google-cloud-function": {
+      "bundle": true,
+      "minify": true,
+      "targets": {
+        "node": "8.16.2"
+      }
+    }
+  }
+}

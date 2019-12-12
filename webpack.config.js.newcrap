@@ -77,8 +77,29 @@ const common = (env) => {
   const outputType = env.outputType
   const config = getOutputTypeConfiguration(outputType)
 
+  const babelLoader = {
+    loader: 'babel-loader',
+    options: {
+      cacheDirectory: true,
+      rootMode: 'upward',
+    },
+  }
+
+  // const globbableSourcePath = sourcePath.replace(/\\/g, '/')
+  // const entries = glob.sync(`${sourcePath}/**/*.{ts,tsx}`).reduce((acc, file) => {
+  //   const entryName = file.replace(`${globbableSourcePath}/`, '').replace(/\.(t|j)sx?/, '')
+  //   acc[entryName] = file
+  //   return acc
+  // }, {})
+
   return {
-    entry: path.resolve(sourcePath, 'index.ts'),
+    // entry: path.resolve(sourcePath, 'index.ts'),
+    entry: {
+      'deploy-cloud-function': path.resolve(__dirname, 'packages', 'deploy-cloud-function', 'src', 'index.ts'),
+      'modular-cli': path.resolve(__dirname, 'packages', 'modular-cli', 'src', 'index.ts'),
+      logging: path.resolve(__dirname, 'packages', 'logging', 'src', 'index.ts'),
+      'sample-library': path.resolve(__dirname, 'packages', 'sample-library', 'src', 'index.ts'),
+    },
     externals: [
       nodeExternals(),
       nodeExternals({ modulesDir: path.resolve(basePath, '../../node_modules') }),
@@ -86,26 +107,27 @@ const common = (env) => {
     module: {
       rules: [
         {
-          test: /\.(j|t)sx?$/,
+          test: /\.tsx?$/,
           exclude: /node_modules/,
-          use: [{
-            loader: 'babel-loader',
-            options: {
-              cacheDirectory: true,
-              rootMode: 'upward',
+          use: [ 
+            {
+              loader: 'ts-loader',
+              options: {
+                transpileOnly: true,
+              },
             },
-          }],
+          ],
         },
       ],
     },
     output: {
-      path: outputPath,
-      filename: config.filename,
+      path: __dirname,
+      filename: `packages/[name]/dist/${config.filename}`,
       libraryTarget: 'commonjs2',
     },
     plugins: config.plugins,
     resolve: {
-      extensions: ['.ts', '.js', '.json'],
+      extensions: ['.ts', '.js', '.tsx', '.jsx', '.json'],
       plugins: [new TsconfigPathsPlugin()],
     },
     stats: {
@@ -129,6 +151,7 @@ module.exports = (env) => {
     environmentName,
     outputType,
   }
+  // console.log('Using webpack env:', JSON.stringify(augmentedEnv, null, '  '))
 
   return webpackMerge.smart(
     common(augmentedEnv), 

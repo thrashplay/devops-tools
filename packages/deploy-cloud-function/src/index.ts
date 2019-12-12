@@ -1,12 +1,11 @@
-import { getValue } from '@thrashplay/sample-library'
+import { execute } from '@thrashplay/modular-cli'
 
-export const processString = (value: string) => {
-  return `${value}`
-}
+import { commands } from './commands'
 
-export const getFinalValue = (args: string[]) => {
-  return `Hello there, ${processString(getValue())}. I'm ${args}.`
-}
-
-const [,, ...args] = process.argv
-console.log(getFinalValue(args))
+;(async () => {
+  try {
+    execute(commands, { scriptName: 'deploy-cloud-function' })
+  } catch (e) {
+    console.error('Failed to execute command:', e)
+  }
+})()

@@ -1,0 +1,32 @@
+{
+  "name": "@thrashplay/thrasher",
+  "version": "0.0.0",
+  "description": "Trhasher prototype",
+  "author": "Sean Kleinjung <sean@thrashplay.com>",
+  "homepage": "https://github.com/thrashplay/devops-tools#readme",
+  "license": "MIT",
+  "main": "./dist/module/index.js",
+  "types": "./dist/module/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "bin": "./dist/cli.js",
+  "thrashpack": {
+    "outputType": "script"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thrashplay/devops-tools.git"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "dependencies": {
+    "@thrashplay/modular-cli": "^0.0.0",
+    "ajv": "^6.10.2",
+    "find-up": "^4.1.0",
+    "glob": "^7.1.6",
+    "lodash": "^4.17.15",
+    "pkg-dir": "^4.2.0"
+  }
+}

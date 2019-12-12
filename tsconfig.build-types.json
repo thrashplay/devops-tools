@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+   "references": [
+    {
+      "path": "packages/sample-library"
+    },
+    {
+      "path": "packages/logging"
+    },
+    {
+      "path": "packages/modular-cli"
+    },
+    {
+      "path": "packages/deploy-cloud-function"
+    }
+  ]
+}

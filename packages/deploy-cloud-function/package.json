@@ -14,16 +14,20 @@
     "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "lib"
   ],
   "bin": {
     "run-sample-cli": "./dist/cli.js"
   },
-  "thrashplayWebpack": {
+  "thrashpack": {
     "outputType": "script"
   },
   "dependencies": {
-    "@thrashplay/sample-library": "^0.0.0"
+    "@thrashplay/thrasher": "^0.0.0",
+    "@thrashplay/modular-cli": "^0.0.0",
+    "@thrashplay/sample-library": "^0.0.0",
+    "yargs": "^15.0.2"
   },
   "devDependencies": {
     "@types/node": "^12.12.16"

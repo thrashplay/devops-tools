@@ -8,10 +8,11 @@ const { chain, isUndefined, replace } = require('lodash')
 const baseTsconfig = {
   extends: '../../tsconfig.json',
   compilerOptions: {
-    declarationDir: './dist',
+    declarationDir: './lib',
     outDir: './dist',
     rootDir: './src',
   },
+  include: ['src'],
 }
 
 const readJsonFile = (file) => {
@@ -40,4 +41,4 @@ const finalTsConfig = {
   references,
 }
 
-fs.writeFileSync('tsconfig.json', JSON.stringify(finalTsConfig))
+fs.writeFileSync('tsconfig.json', JSON.stringify(finalTsConfig, null, '  '))

@@ -1,8 +1,8 @@
 {
-  "name": "@thrashplay/sample-library",
+  "name": "@thrashplay/logging",
   "version": "0.0.0",
-  "description": "Sample library, demonstrating how to share code in the monorepo.",
-  "main": "dist/main.bundle.js",
+  "description": "Helper library for logging.",
+  "main": "dist/index.js",
   "types": "lib/index.d.ts",
   "author": "Sean Kleinjung",
   "license": "MIT",
@@ -20,7 +20,7 @@
   ],
   "devDependencies": {
     "@types/jest": "^24.0.23",
-    "babel-jest": "^24.9.0",
-    "jest": "^24.9.0"
-  }
+    "@types/lodash": "^4.14.149"
+  },
+  "dependencies": {}
 }

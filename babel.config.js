@@ -1,61 +1,54 @@
-const { get, merge } = require('lodash')
+const { get, identity, isEmpty } = require('lodash')
 
-const VALID_ENVIRONMENTS = [
-  'google-cloud-function',
-  'library',
-  'script',
-  'test',
-]
+const { configurations, getOutputType } = require('./build-lib/index')
 
-const defaultConfiguration = {
-  modules: false,
-  node: 'current',
-}
-const configurations = {
-  test: {
-    modules: 'commonjs',
+const defaults = {
+  presets: {
+    '@babel/preset-env': {
+      corejs: 3,
+      modules: false,
+      debug: false,
+      targets: {
+        node: 'current',
+      },
+      useBuiltIns: 'usage',
+    },
   },
-  'google-cloud-function': {
-    modules: 'commonjs',
-    node: '8.16.2',
-  },
-}
-
-const getEnvironmentConfiguration = (environment) => {
-  return merge({}, defaultConfiguration, get(configurations, environment, {}))
 }
 
 module.exports = api => {
-  const env = api.env()
-  if (!VALID_ENVIRONMENTS.includes(env)) {
-    throw new Error(`Invalid environment: ${env}`)
+  const outputType = getOutputType()
+  api.cache(() => outputType)
+
+  const createConfig = (name, defaultSet, customizers) => {
+    const defaultValues = get(defaultSet, name, {})
+    const customizer = get(customizers, name, identity)
+    const options = customizer(defaultValues)
+    return (isEmpty(options)) ? name : [name, options]
+  }
+  const createPluginConfig = (name) => {
+    return createConfig(name, get(defaults, 'plugins'), get(configurations, `${outputType}.babel.plugins`))
+  }
+  const createPresetConfig = (name) => {
+    return createConfig(name, get(defaults, 'presets'), get(configurations, `${outputType}.babel.presets`))
   }
 
-  const config = getEnvironmentConfiguration(env)
-
   const presets = [
-    [
-      '@babel/preset-env',
-      {
-        corejs: 3,
-        modules: config.modules,
-        debug: false,
-        targets: {
-          node: config.node,
-        },
-        useBuiltIns: 'usage',
-      },
-    ],
-    '@babel/preset-typescript',
+    createPresetConfig('@babel/preset-env'),
+    createPresetConfig('@babel/preset-typescript'),
   ]
 
   const plugins = [
-    '@babel/proposal-class-properties',
-    '@babel/proposal-object-rest-spread',
-    '@babel/proposal-export-default-from',
+    createPluginConfig('@babel/proposal-class-properties'),
+    createPluginConfig('@babel/proposal-object-rest-spread'),
+    createPluginConfig('@babel/proposal-export-default-from'),
   ]
 
   return {
+    babelrcRoots: [
+      '.',
+      'packages/*',
+    ],
     ignore: [/node_modules/],
     plugins,
     presets,

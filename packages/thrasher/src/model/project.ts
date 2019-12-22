@@ -1,8 +1,8 @@
 import { find, get, isEqual, isUndefined, map } from 'lodash'
 
 import { getMonorepoDetectors, MonorepoDetector, Monorepo } from './monorepos'
-import { createPackageMetadataFactory, PackageMetadataFactory } from './package-metadata'
-import { PackageMetadata } from './package-metadata'
+import { createPackageConfigFactory, PackageConfigFactory } from './package-config'
+import { PackageMetadata } from './package-config'
 
 export interface ProjectFactory {
   createProject: (fromDir: string) => Promise<Project>
@@ -10,7 +10,7 @@ export interface ProjectFactory {
 
 export interface ProjectFactoryOptions {
   monorepoDetectors?: MonorepoDetector[],
-  packageMetadataFactory?: PackageMetadataFactory,
+  packageMetadataFactory?: PackageConfigFactory,
 }
 
 export class Project {
@@ -71,13 +71,13 @@ const getProjectStructure = (fromDirectory = process.cwd(), monorepoDetectors: M
 
 export const createProjectFactory = ({
   monorepoDetectors = getMonorepoDetectors(),
-  packageMetadataFactory = createPackageMetadataFactory(),
+  packageMetadataFactory = createPackageConfigFactory(),
 }: ProjectFactoryOptions = {}): ProjectFactory => ({
   createProject: (initialDir: string) => {
     return getProjectStructure(initialDir, monorepoDetectors)
       .then((projectStructure) => {
         const packageDirs = get(projectStructure, 'packageDirs', [])
-        const metadataPromises = map(packageDirs, (packageDir) => packageMetadataFactory.createPackageMetadata(packageDir))
+        const metadataPromises = map(packageDirs, (packageDir) => packageMetadataFactory.createPackageConfig(packageDir))
 
         return Promise.all(metadataPromises)
           .then((packages) => new Project(initialDir, projectStructure.isMonorepo, projectStructure.rootDir, packages))

@@ -1,9 +1,13 @@
 import path from 'path'
 
-import { get, keys, map, sortBy } from 'lodash'
+import { get, keys, map, merge, sortBy } from 'lodash'
 
 import { generateRootTsConfig } from '../create-tsconfigs'
 import { Project } from '../../model'
+import fixtures from '../../__fixtures__'
+
+jest.mock('../../fs')
+const fileUtils = require('../../fs')
 
 const forbiddenProperties = [
   'baseUrl',
@@ -19,14 +23,14 @@ const forbiddenProperties = [
 describe('generateRootTsConfig', () => {
   const monorepoProject = new Project('/app', true, '/app', [
     {
-      config: {
+      packageJson: {
         name: 'package-one',
       },
       directory: path.join('/app', 'packages', 'package-one-dir'),
       name: 'package-one',
     },
     {
-      config: {
+      packageJson: {
         name: '@scope/package-two',
       },
       directory: path.join('/app', 'other-packages-root', 'package-two-dir'),
@@ -36,7 +40,7 @@ describe('generateRootTsConfig', () => {
 
   const standaloneProject = new Project('/app', true, '/app', [
     {
-      config: {
+      packageJson: {
         name: 'my-package',
       },
       directory: '/app',
@@ -44,13 +48,18 @@ describe('generateRootTsConfig', () => {
     },
   ])
 
-  it.each(map(forbiddenProperties, (property) => [property]))('generates error if property specified: %s', () => {
-    throw new Error('not implemented')
+  beforeEach(() => {
+    jest.clearAllMocks()
+    fileUtils.__clear()
   })
 
   describe('when a monorepo', () => {
-    const rootConfig = generateRootTsConfig(monorepoProject)
-    const paths = get(rootConfig, ['compilerOptions', 'paths'])
+    // creates a mock 'tsconfig.json' file in the monorepo root, with the specified contents
+    const setMockBaseTsConfig = (config: object) => {
+      fileUtils.__setMockLoadJsonResults({
+        '/app/tsconfig.json': config,
+      })
+    }
 
     it('extends existing tsconfig.json, when one exists', () => {
       throw new Error('not implemented')
@@ -60,15 +69,33 @@ describe('generateRootTsConfig', () => {
       throw new Error('not implemented')
     })
 
+    it.only.each(map(forbiddenProperties, (property) => [property]))('generates error if property specified in existing tsconfig.json: %s', (property) => {
+      const tsconfigWithExtraProperty = merge({}, fixtures.tsconfig.default, { [property]: 'any-value' })
+      setMockBaseTsConfig(tsconfigWithExtraProperty)
+      
+      expect(() => {
+        generateRootTsConfig(monorepoProject)
+      }).toThrowError(`The tsconfig.json option '${property}' cannot be set, because it will be overriden by Thrasher.`)
+    })  
+
     it('generates TS path mappings with expected keys', () => {
+      const rootConfig = generateRootTsConfig(monorepoProject)
+      const paths = get(rootConfig, ['compilerOptions', 'paths'])
+  
       expect(sortBy(keys(paths))).toEqual(['@scope/package-two', 'package-one'])
     })
   
     it('generates TS path mappings for non-scoped packages', () => {
+      const rootConfig = generateRootTsConfig(monorepoProject)
+      const paths = get(rootConfig, ['compilerOptions', 'paths'])
+  
       expect(get(paths, 'package-one')).toBe('packages/package-one-dir/src')
     })
   
     it('generates TS path mappings for scoped packages', () => {
+      const rootConfig = generateRootTsConfig(monorepoProject)
+      const paths = get(rootConfig, ['compilerOptions', 'paths'])
+  
       expect(get(paths, '@scope/package-two')).toBe('other-packages-root/package-two-dir/src')
     })
   })

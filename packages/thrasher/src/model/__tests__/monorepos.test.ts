@@ -1,11 +1,11 @@
 import { getMonorepoDetectors, lerna } from '../monorepos'
 
-jest.mock('../../fs/file-utils')
+jest.mock('../../fs')
 
 jest.mock('glob')
 const glob = require('glob')
 
-const fileUtils = require('../../fs/file-utils')
+const fileUtils = require('../../fs')
 
 describe('monorepo detectors', () => {
   const EXPECTED_DIRECTORY = '/parent-directory/sub-directory'

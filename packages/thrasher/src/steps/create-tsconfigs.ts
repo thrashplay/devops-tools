@@ -4,6 +4,7 @@ import path from 'path'
 import { chain, cloneDeep, each, isUndefined, replace } from 'lodash'
 
 import { Project } from '../model'
+import { loadJson } from '../fs'
 
 import { BuildStep, BuildConfiguration } from './build-step'
 
@@ -63,7 +64,7 @@ export const create = (): BuildStep => {
   return {
     execute: (_configuration: BuildConfiguration, project: Project) => {
       each(project.packagesToBuild, (pkg) => {
-        const packageJson = readJsonFile(path.join(pkg.directory, 'package.json'))
+        const packageJson = pkg.packageJson
         const references = chain(packageJson.dependencies)
           .map((_version, name) => name)
           .map(mapDependencyToTypescriptReference)

@@ -102,11 +102,14 @@ export const createDirectoryWalker: DirectoryWalkerFactory = (initialDirectory: 
 /**
  * Loads the specified file into a JSON object. If the file doesn't exist or can't be loaded, the Promise will be
  * rejected.
+ * 
+ * Throws a NodeJS.ErrnoException if the file does not exist.
+ * Throws a SyntaxError if the file exists, but does not contain valid JSON.
  */
 export const loadJson: JsonFileLoader = (fileToLoad: string) => {
   return new Promise((resolve, reject) => {
     fs.readFile(fileToLoad, 'utf8', (error, data) => {
-      if (!isUndefined) {
+      if (!isUndefined(error)) {
         reject(error)
       } else {
         resolve(JSON.parse(data))

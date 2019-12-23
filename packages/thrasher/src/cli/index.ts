@@ -33,21 +33,24 @@ const createBuildTask = (buildStep: BuildStep): BuildTask => {
 }
 
 const commands = {
-  'dump': {
-    description: 'Dumps project info.',
-    tasks: [
-      createBuildTask(Steps.createDump()),
-    ],
-  },
   'create-tsconfigs': {
     description: 'Creates project TSConfig JSON files.',
     tasks: [
       createBuildTask(Steps.createCreateTsConfigs()),
     ],
   },
+  'dump': {
+    description: 'Dumps project info.',
+    tasks: [
+      createBuildTask(Steps.createDump()),
+    ],
+  },
 }
 
 export const run = async () => {
+  const { createProjectStructure } = require('../structure/create-project-lerna')
+  console.log(await createProjectStructure(process.cwd()))
+
   try {
     execute(commands, { scriptName: 'thrasher' })
   } catch (e) {

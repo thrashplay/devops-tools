@@ -1,6 +1,8 @@
 import path from 'path'
 
-import { get, head, isUndefined, mapKeys, merge, replace } from 'lodash'
+import { castArray, get, head, isUndefined, map, mapKeys, merge, replace, set } from 'lodash'
+
+import { normalizePath } from '../../test-utils'
 
 export const INVALID_JSON = 'invalid json'
 
@@ -11,13 +13,13 @@ export interface MockDirectoryWalkerResults {
 }
 
 export const __clear = () => {
-  __setMockDirectoryWalkerResults({})
+  mockDirectoryWalkerResults = {}
   __setMockLoadJsonResults({})
 }
 
 let mockDirectoryWalkerResults: MockDirectoryWalkerResults
-export function __setMockDirectoryWalkerResults(newMockDirectoryWalkerResults: MockDirectoryWalkerResults) {
-  mockDirectoryWalkerResults = merge({}, newMockDirectoryWalkerResults)
+export function __setMockDirectoryWalkerResults(initialDirectory: string, fileToFind: string, result: string | string[]) {
+  set(mockDirectoryWalkerResults, [normalizePath(initialDirectory, true), fileToFind], castArray(result))
 }
 
 let mockLoadJsonResults: { [key: string]: object | typeof INVALID_JSON}
@@ -27,12 +29,12 @@ export function __setMockLoadJsonResults(newMockLoadJsonResults: { [key: string]
 
 export const createDirectoryWalker = (initialDirectory: string, _rootDirectory?: string) => ({
   findAllFiles: (fileToFind: string) => {
-    const resultsForRoot = get(mockDirectoryWalkerResults, initialDirectory)
+    const resultsForRoot = get(mockDirectoryWalkerResults, normalizePath(initialDirectory, true))
     const results = isUndefined(resultsForRoot) ? undefined : resultsForRoot[fileToFind]
     return isUndefined(results) ? Promise.resolve([] as string[]) : Promise.resolve(results)
   },
   findFirstFile: (fileToFind: string) => {
-    const resultsForRoot = get(mockDirectoryWalkerResults, initialDirectory)
+    const resultsForRoot = get(mockDirectoryWalkerResults, normalizePath(initialDirectory, true))
     const results = isUndefined(resultsForRoot) ? undefined : resultsForRoot[fileToFind]
     return isUndefined(results) ? Promise.resolve(undefined) : Promise.resolve(head(results))
   },

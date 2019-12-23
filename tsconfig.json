@@ -4,6 +4,7 @@
     "allowJs": false,
     "allowSyntheticDefaultImports": true,
     "alwaysStrict": true,
+    "baseUrl": "./packages",
     "declarationMap": true,
     "emitDeclarationOnly": true,
     "esModuleInterop": true,
@@ -30,7 +31,6 @@
     "strictPropertyInitialization": true,
     "target": "es2017",
     "traceResolution": false,
-    "types": ["jest", "node"],
     "paths": {
       "@thrashplay/*": ["*/src"]
     }

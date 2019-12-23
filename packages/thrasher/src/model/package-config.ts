@@ -3,20 +3,14 @@ import fs from 'fs'
 
 import { isUndefined } from 'lodash'
 
-import { loadJson } from '../fs'
+import { loadJson } from '../structure/directory-walker'
 
 import { PackageJson, validatePackageJson } from './npm-package-json'
 
 export interface PackageConfigFactory {
-  createPackageConfig: (packageDirectory: string) => Promise<PackageMetadata>
+  createPackageConfig: (packageDirectory: string) => Promise<PackageConfig>
 }
 export type PackageConfigFactoryFactory = () => PackageConfigFactory
-
-export interface PackageMetadata {
-  directory: string
-  name: string
-  packageJson: PackageJson
-}
 
 const loadPackageConfig = (directory: string) => 
   Promise.all([directory, loadJson(path.join(directory, 'package.json'))])

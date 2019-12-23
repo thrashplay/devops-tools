@@ -3,7 +3,7 @@ import path from 'path'
 import { flatMap, get, isUndefined } from 'lodash'
 import glob from 'glob'
 
-import { createDirectoryWalker, loadJson } from '../fs'
+import { createDirectoryWalker, loadJson } from '../structure/directory-walker'
 
 export type MonorepoDetector = (fromDirectory: string) => Promise<Monorepo | undefined>
 

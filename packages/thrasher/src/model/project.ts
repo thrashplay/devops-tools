@@ -2,7 +2,15 @@ import { find, get, isEqual, isUndefined, map } from 'lodash'
 
 import { getMonorepoDetectors, MonorepoDetector, Monorepo } from './monorepos'
 import { createPackageConfigFactory, PackageConfigFactory } from './package-config'
-import { PackageMetadata } from './package-config'
+import { PackageConfig } from './package-config'
+
+
+
+/**
+ * Function that locates the project root for a specified directory, returning a
+ * promise to resolve the corresponding AbstractProjectRoot.
+ */
+export type ProjectRootLocator = (directory: string) => Promise<AbstractProjectRoot>
 
 export interface ProjectFactory {
   createProject: (fromDir: string) => Promise<Project>
@@ -10,7 +18,7 @@ export interface ProjectFactory {
 
 export interface ProjectFactoryOptions {
   monorepoDetectors?: MonorepoDetector[],
-  packageMetadataFactory?: PackageConfigFactory,
+  packageConfigFactory?: PackageConfigFactory,
 }
 
 export class Project {
@@ -25,7 +33,7 @@ export class Project {
     readonly projectRootDir: string,
 
     /** list of all packages in the project (will be single package if standalone) */
-    readonly packages: PackageMetadata[],
+    readonly packages: PackageConfig[],
   ) { 
     if (!isMonorepo && !this.isProjectRoot(this.initialDir)) {
       throw new Error('For standalone projects, the initialDir must equal the projectRootDir.')
@@ -71,15 +79,15 @@ const getProjectStructure = (fromDirectory = process.cwd(), monorepoDetectors: M
 
 export const createProjectFactory = ({
   monorepoDetectors = getMonorepoDetectors(),
-  packageMetadataFactory = createPackageConfigFactory(),
+  packageConfigFactory = createPackageConfigFactory(),
 }: ProjectFactoryOptions = {}): ProjectFactory => ({
   createProject: (initialDir: string) => {
     return getProjectStructure(initialDir, monorepoDetectors)
       .then((projectStructure) => {
         const packageDirs = get(projectStructure, 'packageDirs', [])
-        const metadataPromises = map(packageDirs, (packageDir) => packageMetadataFactory.createPackageConfig(packageDir))
+        const packagePromises = map(packageDirs, (packageDir) => packageConfigFactory.createPackageConfig(packageDir))
 
-        return Promise.all(metadataPromises)
+        return Promise.all(packagePromises)
           .then((packages) => new Project(initialDir, projectStructure.isMonorepo, projectStructure.rootDir, packages))
       })
   },

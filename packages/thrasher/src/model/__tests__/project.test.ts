@@ -3,7 +3,7 @@ import path from 'path'
 
 import { each, find, map } from 'lodash'
 
-import { PackageMetadata } from '../../model'
+import { PackageConfig } from '../../model'
 
 import { createProjectFactory, Project } from '..'
 
@@ -57,8 +57,8 @@ describe('createProject', () => {
 
     const factory = createProjectFactory({ 
       monorepoDetectors: [alwaysMonorepoDetector],
-      packageMetadataFactory: {
-        createPackageMetadata: (packageDirectory: string) => {
+      packageConfigFactory: {
+        createPackageConfig: (packageDirectory: string) => {
           const packageData = find(data.monorepo.packages, ['directory', packageDirectory])
 
           return Promise.resolve({

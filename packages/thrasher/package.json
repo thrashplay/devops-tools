@@ -22,9 +22,11 @@
     "test": "echo \"Error: run tests from root\" && exit 1"
   },
   "dependencies": {
+    "@lerna/project": "^3.18.0",
     "@thrashplay/modular-cli": "^0.0.0",
     "ajv": "^6.10.2",
     "find-up": "^4.1.0",
+    "fs-extra": "^8.1.0",
     "glob": "^7.1.6",
     "lodash": "^4.17.15",
     "pkg-dir": "^4.2.0"

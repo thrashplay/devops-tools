@@ -1,28 +1,21 @@
-import path from 'path'
-
 import { 
   defaultTo,
   get,
   has,
   isFunction,
   isNil,
+  isNumber,
   isPlainObject,
   isString,
   isUndefined,
   merge,
   noop,
-  replace,
   set,
 } from 'lodash'
 
-const fs = jest.genMockFromModule('fs')
+import { normalizePath } from '../test-utils'
 
 let mockFiles: { [path: string]: string } = {}
-
-/**
- * Replaces '/' and '\' characters in the path with the path separator for the current system.
- */
-const normalizePath = (pathString: string) => replace(pathString, /[/\\]/g, path.sep)
 
 /**
  * Removes the contents of a mocked with the given path, to the given string. Any attempts
@@ -33,13 +26,14 @@ const normalizePath = (pathString: string) => replace(pathString, /[/\\]/g, path
  * the appropriate system-specific path separator.
  */
 export const __removeMockFile = (path: string) => {
-  delete mockFiles[normalizePath(path)]
+  delete mockFiles[normalizePath(path, true)]
 }
 
 /**
  * Sets the contents of a mocked with the given path, to the given string. This
  * affects the following fs functions:
  * 
+ *   - access (true/false based on whether a mock file exists, no permissions checking)
  *   - existsSync
  *   - readFile
  *   - readFileSync
@@ -48,7 +42,7 @@ export const __removeMockFile = (path: string) => {
  * the appropriate system-specific path separator.
  */
 export const __setMockFile = (path: string, contents: string) => {
-  mockFiles[normalizePath(path)] = contents
+  mockFiles[normalizePath(path, true)] = contents
 }
 
 /**
@@ -74,6 +68,20 @@ const createMissingFileError = (path: string): NodeJS.ErrnoException => {
   set(error, 'syscall', 'open')
   set(error, 'path', path)
   return error
+}
+
+export type AccessMode = number
+export type AccessCallback = (err: NodeJS.ErrnoException) => void
+const accessMock = (path: string, modeOrCallback: AccessMode | AccessCallback, callback?: AccessCallback) => {
+  let resolvedCallback: AccessCallback
+
+  if (isNumber(modeOrCallback)) {
+    resolvedCallback = defaultTo(callback, noop)
+  } else {
+    resolvedCallback = defaultTo(modeOrCallback, noop)
+  }
+
+  resolvedCallback(has(mockFiles, path) ? undefined : createMissingFileError(path))
 }
 
 const existsSyncMock = (path: string) => has(mockFiles, path)
@@ -129,11 +137,12 @@ const readFileSyncMock = (path: string, options?: ReadFileOptions) => {
   }
 }
 
-module.exports = merge(fs, {
+module.exports = merge(jest.genMockFromModule('fs'), {
   __clear,
   __removeMockFile,
   __setMockFile,
   __setMockJsonFile,
+  access: accessMock,
   existsSync: existsSyncMock,
   readFile: readFileMock,
   readFileSync: readFileSyncMock,

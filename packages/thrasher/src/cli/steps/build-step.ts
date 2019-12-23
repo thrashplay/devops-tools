@@ -1,5 +1,5 @@
 
-import { Project } from '../model/project'
+import { Project } from '../../model/project'
 
 export type BuildConfiguration = {
   /**

@@ -1,23 +1,16 @@
-import { find, get, isEqual, isUndefined, map } from 'lodash'
+import { defaultTo, find, isEqual, isNil, isUndefined, map } from 'lodash'
 
-import { getMonorepoDetectors, MonorepoDetector, Monorepo } from './monorepos'
+import { createProjectStructure as standalone } from '../structure/create-project-standalone'
+import { createProjectStructure as lerna } from '../structure/create-project-lerna'
+
 import { createPackageConfigFactory, PackageConfigFactory } from './package-config'
 import { PackageConfig } from './package-config'
-
-
-
-/**
- * Function that locates the project root for a specified directory, returning a
- * promise to resolve the corresponding AbstractProjectRoot.
- */
-export type ProjectRootLocator = (directory: string) => Promise<AbstractProjectRoot>
 
 export interface ProjectFactory {
   createProject: (fromDir: string) => Promise<Project>
 }
 
 export interface ProjectFactoryOptions {
-  monorepoDetectors?: MonorepoDetector[],
   packageConfigFactory?: PackageConfigFactory,
 }
 
@@ -35,6 +28,7 @@ export class Project {
     /** list of all packages in the project (will be single package if standalone) */
     readonly packages: PackageConfig[],
   ) { 
+    console.log('pkgs:', packages)
     if (!isMonorepo && !this.isProjectRoot(this.initialDir)) {
       throw new Error('For standalone projects, the initialDir must equal the projectRootDir.')
     }
@@ -58,37 +52,36 @@ export class Project {
   }
 }
 
-const getProjectStructure = (fromDirectory = process.cwd(), monorepoDetectors: MonorepoDetector[] = []) => {
-  const createStandaloneStructure = () => ({
-    isMonorepo: false,
-    rootDir: fromDirectory,
-    packageDirs: [fromDirectory],
-  })
-  const createMonorepoStructure = (monorepo: Monorepo) => ({
-    isMonorepo: true,
-    ...monorepo,
-  })
+const getProjectStructure = async (fromDirectory = process.cwd()) => {
+  const strategies = [lerna, standalone]
 
-  return Promise
-    .all(map(monorepoDetectors, (detector) => detector(fromDirectory)))
-    .then((results) => find(results, (result) => !isUndefined(result)))
-    .then((monorepo) => isUndefined(monorepo) 
-      ? createStandaloneStructure()
-      : createMonorepoStructure(monorepo))
+  for (let strategy of strategies) {
+    const structure = await strategy(fromDirectory)
+    if (!isNil(structure)) {
+      return structure
+    }
+  }
+
+  return undefined
 }
 
 export const createProjectFactory = ({
-  monorepoDetectors = getMonorepoDetectors(),
   packageConfigFactory = createPackageConfigFactory(),
 }: ProjectFactoryOptions = {}): ProjectFactory => ({
   createProject: (initialDir: string) => {
-    return getProjectStructure(initialDir, monorepoDetectors)
+    return getProjectStructure(initialDir)
       .then((projectStructure) => {
-        const packageDirs = get(projectStructure, 'packageDirs', [])
-        const packagePromises = map(packageDirs, (packageDir) => packageConfigFactory.createPackageConfig(packageDir))
-
-        return Promise.all(packagePromises)
-          .then((packages) => new Project(initialDir, projectStructure.isMonorepo, projectStructure.rootDir, packages))
+        if (isNil(projectStructure)) {
+          return Promise.reject('Unable to recognize project structure.')
+        } else {
+          const packageDirs = defaultTo(projectStructure.packageDirectories, [])
+          const packagePromises = map(packageDirs, (packageDir) => {
+            console.log('creating package config:', packageDir)
+            return packageConfigFactory.createPackageConfig(packageDir)
+          })
+          return Promise.all(packagePromises)
+            .then((packages) => new Project(initialDir, projectStructure.isMonorepo, projectStructure.rootDirectory, packages))
+        }
       })
   },
 })

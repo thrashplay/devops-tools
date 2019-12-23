@@ -1,6 +1,6 @@
-import { Project } from '../model'
+import { Project } from '../../model'
 
-import { createLogger } from '../logging'
+import { createLogger } from '../../logging'
 
 import { BuildStep, BuildConfiguration } from './build-step'
 

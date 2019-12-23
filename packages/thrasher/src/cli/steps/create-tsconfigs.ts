@@ -3,8 +3,8 @@ import path from 'path'
 
 import { chain, cloneDeep, each, isUndefined, replace } from 'lodash'
 
-import { Project } from '../model'
-import { loadJson } from '../structure/directory-walker'
+import { Project } from '../../model'
+import { loadJson } from '../../structure/directory-walker'
 
 import { BuildStep, BuildConfiguration } from './build-step'
 

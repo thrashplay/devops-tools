@@ -2,7 +2,7 @@ import { isEqual, isUndefined } from 'lodash'
 import { error, execute, success, Task } from '@thrashplay/modular-cli'
 
 import { BuildConfiguration, BuildStep, createProjectFactory, Project } from '../model'
-import { Steps } from '../steps'
+import { Steps } from './steps'
 
 const projectFactory = createProjectFactory()
 

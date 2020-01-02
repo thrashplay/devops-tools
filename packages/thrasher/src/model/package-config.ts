@@ -43,7 +43,7 @@ export class PackageConfig {
   }
 
   public readonly name: string
-  private constructor(public readonly directory: string, public readonly packageJson: PackageJson) { 
+  public constructor(public readonly directory: string, public readonly packageJson: PackageJson) { 
     this.name = this.packageJson.name
   }
 

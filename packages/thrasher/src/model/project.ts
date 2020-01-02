@@ -1,3 +1,6 @@
+import path from 'path'
+
+import fs from 'fs-extra'
 import { defaultTo, find, isEqual, isNil, isUndefined, map } from 'lodash'
 
 import { createProjectStructure as standalone } from '../structure/create-project-standalone'
@@ -28,7 +31,6 @@ export class Project {
     /** list of all packages in the project (will be single package if standalone) */
     readonly packages: PackageConfig[],
   ) { 
-    console.log('pkgs:', packages)
     if (!isMonorepo && !this.isProjectRoot(this.initialDir)) {
       throw new Error('For standalone projects, the initialDir must equal the projectRootDir.')
     }
@@ -50,6 +52,26 @@ export class Project {
       ? this.packages
       : getSinglePackageAsArray(this.initialDir)
   }
+
+  /**
+   * Reads a file, relative to the project's root directory.
+   */
+  public readFile = (projectRelativePath: string) => {
+    return fs.readFile(path.resolve(this.projectRootDir, projectRelativePath), 'utf8')
+  }
+
+  /**
+   * Reads a file, relative to the project's root directory, and attempts to parse it as JSON.
+   * Will reject the promise if the specified path is not a valid JSON file.
+   */
+  public readJsonFile = (packageRelativePath: string) => this.readFile(packageRelativePath)
+    .then((fileContents) => JSON.parse(fileContents))
+    .catch((err) => {
+      if (err instanceof SyntaxError) {
+        throw new Error(`File '${packageRelativePath}' does not contain valid JSON. (In package: ${this.directory})`)
+      }
+      throw err
+    })
 }
 
 const getProjectStructure = async (fromDirectory = process.cwd()) => {

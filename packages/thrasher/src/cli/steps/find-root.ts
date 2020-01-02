@@ -1,5 +1,4 @@
 import { Project } from '../../model'
-
 import { createLogger } from '../../logging'
 
 import { BuildStep, BuildConfiguration } from './build-step'

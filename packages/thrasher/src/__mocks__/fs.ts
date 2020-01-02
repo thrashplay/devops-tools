@@ -7,7 +7,6 @@ import {
   isNumber,
   isPlainObject,
   isString,
-  isUndefined,
   merge,
   noop,
   set,
@@ -16,6 +15,31 @@ import {
 import { normalizePath } from '../test-utils'
 
 let mockFiles: { [path: string]: string } = {}
+let writtenFiles: { [path: string]: string } = {}
+
+export const __assertFileWasWritten = (filePath: string, fileContents: string) => {
+  const normalizedPath = normalizePath(filePath)
+  expect(writtenFiles).toHaveProperty([normalizedPath])
+  expect(get(writtenFiles, normalizedPath)).toEqual(fileContents)
+}
+
+export const __assertJsonFileWasWritten = (filePath: string, fileContents: any) => {
+  const normalizedPath = normalizePath(filePath)
+  expect(writtenFiles).toHaveProperty([normalizedPath])
+
+  const jsonFileContent = get(writtenFiles, normalizedPath)
+  expect(JSON.parse(jsonFileContent)).toEqual(fileContents)
+}
+
+export const __getWrittenFileContents = (filePath: string) => {
+  const normalizedPath = normalizePath(filePath)
+  return writtenFiles[normalizedPath]
+}
+
+export const __getWrittenJsonFileContents = (filePath: string) => {
+  const contents = __getWrittenFileContents(filePath)
+  return isNil(contents) ? undefined : JSON.parse(contents)
+}
 
 /**
  * Removes the contents of a mocked with the given path, to the given string. Any attempts
@@ -59,6 +83,7 @@ export const __setMockJsonFile = (path: string, contents: any) => {
 
 export const __clear = () => {
   mockFiles = {}
+  writtenFiles = {}
 }
 
 const createMissingFileError = (path: string): NodeJS.ErrnoException => {
@@ -71,7 +96,7 @@ const createMissingFileError = (path: string): NodeJS.ErrnoException => {
 }
 
 export type AccessMode = number
-export type AccessCallback = (err: NodeJS.ErrnoException) => void
+export type AccessCallback = (err?: NodeJS.ErrnoException) => void
 const accessMock = (path: string, modeOrCallback: AccessMode | AccessCallback, callback?: AccessCallback) => {
   let resolvedCallback: AccessCallback
 
@@ -86,13 +111,13 @@ const accessMock = (path: string, modeOrCallback: AccessMode | AccessCallback, c
 
 const existsSyncMock = (path: string) => has(mockFiles, path)
 
-const getFileContents = (path: string, encoding?: string) => {
+const getFileContents = (path: string, encoding?: string | null) => {
   const fileContents = get(mockFiles, path)
-  return isUndefined(encoding) ? Buffer.from(fileContents, 'utf8') : fileContents
+  return isNil(encoding) ? Buffer.from(fileContents, 'utf8') : fileContents
 }
 
-type ReadFileOptions = string | { encoding?: string | null, flag?: string }
-type ReadFileCallback = (err: NodeJS.ErrnoException, data?: string | Buffer) => void
+export type ReadFileOptions = string | { encoding?: string | null, flag?: string }
+export type ReadFileCallback = (err: NodeJS.ErrnoException, data?: string | Buffer) => void
 const readFileMock = (path: string, optionsOrCallback: ReadFileOptions | ReadFileCallback, callback?: ReadFileCallback ) => {
   if (isFunction(optionsOrCallback) && !isNil(callback)) {
     throw new Error('Cannot specify a callback option for both the second and third argument to "readFile".')
@@ -103,14 +128,16 @@ const readFileMock = (path: string, optionsOrCallback: ReadFileOptions | ReadFil
 
   if (isString(optionsOrCallback)) {
     encoding = optionsOrCallback
-    resolvedCallback = defaultTo(callback, noop)
+    resolvedCallback = callback
   } else if (isPlainObject(optionsOrCallback)) {
     encoding = get(optionsOrCallback, 'encoding')
-    resolvedCallback = defaultTo(callback, noop)
+    resolvedCallback = callback
   } else if (isFunction(optionsOrCallback)) {
     encoding = undefined
-    resolvedCallback = defaultTo(optionsOrCallback, noop)
+    resolvedCallback = optionsOrCallback
   }
+
+  resolvedCallback = defaultTo(resolvedCallback, noop)
 
   if (has(mockFiles, path)) {
     resolvedCallback(undefined, getFileContents(path, encoding))
@@ -137,13 +164,30 @@ const readFileSyncMock = (path: string, options?: ReadFileOptions) => {
   }
 }
 
-module.exports = merge(jest.genMockFromModule('fs'), {
-  __clear,
-  __removeMockFile,
-  __setMockFile,
-  __setMockJsonFile,
-  access: accessMock,
-  existsSync: existsSyncMock,
-  readFile: readFileMock,
-  readFileSync: readFileSyncMock,
+const writeFileMock = jest.fn((file, data, optionsOrCallback, callback) => {
+  writtenFiles[file] = data
+
+  if (isFunction(optionsOrCallback)) {
+    optionsOrCallback()
+  }
+  if (isFunction(callback)) {
+    callback()
+  }
 })
+
+const writeFileSyncMock = jest.fn((file, data, _options) => {
+  writtenFiles[file] = data
+})
+
+module.exports = merge({},
+  module.exports,
+  jest.genMockFromModule('fs'),
+  {
+    access: accessMock,
+    existsSync: existsSyncMock,
+    readFile: readFileMock,
+    readFileSync: readFileSyncMock,
+    writeFile: writeFileMock,
+    writeFileSync: writeFileSyncMock,
+  },
+)

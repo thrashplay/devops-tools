@@ -1,13 +1,15 @@
+import fs from 'fs'
 import path from 'path'
 
 import { get, keys, map, merge, sortBy } from 'lodash'
 
-import { generateRootTsConfig } from '../create-tsconfigs'
-import { Project } from '../../model'
-import fixtures from '../../__fixtures__'
+import * as MockFsApi from '../../../__mocks__/fs'
+import { create } from '../create-tsconfigs'
+import { Project, PackageConfig } from '../../../model'
+import fixtures from '../../../__fixtures__'
 
-jest.mock('../../fs')
-const fileUtils = require('../../fs')
+jest.mock('fs')
+const mockFs = fs as (jest.Mocked<typeof fs> & typeof MockFsApi)
 
 const forbiddenProperties = [
   'baseUrl',
@@ -21,68 +23,87 @@ const forbiddenProperties = [
 ]
 
 describe('generateRootTsConfig', () => {
+  const buildConfiguration = { initialDirectory: '/' }
+  const buildStep = create()
+
   const monorepoProject = new Project('/app', true, '/app', [
-    {
-      packageJson: {
-        name: 'package-one',
-      },
-      directory: path.join('/app', 'packages', 'package-one-dir'),
+    new PackageConfig(path.join('/app', 'packages', 'package-one-dir'), {
       name: 'package-one',
-    },
-    {
-      packageJson: {
-        name: '@scope/package-two',
-      },
-      directory: path.join('/app', 'other-packages-root', 'package-two-dir'),
+    }),
+    new PackageConfig(path.join('/app', 'other-packages-root', 'package-two-dir'), {
       name: '@scope/package-two',
-    },
+    }),
   ])
 
   const standaloneProject = new Project('/app', true, '/app', [
-    {
-      packageJson: {
-        name: 'my-package',
-      },
-      directory: '/app',
+    new PackageConfig('/app', {
       name: 'my-package',
-    },
+    }),
   ])
 
   beforeEach(() => {
     jest.clearAllMocks()
-    fileUtils.__clear()
+    mockFs.__clear()
   })
 
   describe('when a monorepo', () => {
     // creates a mock 'tsconfig.json' file in the monorepo root, with the specified contents
     const setMockBaseTsConfig = (config: object) => {
-      fileUtils.__setMockLoadJsonResults({
-        '/app/tsconfig.json': config,
-      })
+      mockFs.__setMockJsonFile('/app/tsconfig.json', config)
     }
 
-    it('extends existing tsconfig.json, when one exists', () => {
-      throw new Error('not implemented')
+    it.only('project-level config extends existing tsconfig.json, when one exists', () => {
+      return buildStep.execute(buildConfiguration, monorepoProject)
+        .then(() => {
+          const generatedTsConfig = mockFs.__getWrittenJsonFileContents('/app/.thrasher/tsconfig.json')
+          expect(generatedTsConfig).toBeDefined()
+          expect(generatedTsConfig.extends).toBe('../tsconfig.json')
+        })
     })
 
     it('does not include extends property, when no tsconfig.json exists', () => {
+      mockFs.__removeMockFile('/app/tsconfig.json')
+      return buildStep.execute(buildConfiguration, monorepoProject)
+        .then(() => {
+          const generatedTsConfig = mockFs.__getWrittenJsonFileContents('/app/.thrasher/tsconfig.json')
+          expect(generatedTsConfig).toBeDefined()
+          expect(generatedTsConfig.extends).toBe('../tsconfig.json')
+        })
+    })
+
+    it('does the right thing, if tsconfig.json cannot be parsed', () => {
       throw new Error('not implemented')
     })
 
-    it.only.each(map(forbiddenProperties, (property) => [property]))('generates error if property specified in existing tsconfig.json: %s', (property) => {
+    it.each(map(forbiddenProperties, (property) => [property]))('generates error if property specified in existing tsconfig.json: %s', (property) => {
       const tsconfigWithExtraProperty = merge({}, fixtures.tsconfig.default, { [property]: 'any-value' })
       setMockBaseTsConfig(tsconfigWithExtraProperty)
       
-      expect(() => {
-        generateRootTsConfig(monorepoProject)
-      }).toThrowError(`The tsconfig.json option '${property}' cannot be set, because it will be overriden by Thrasher.`)
-    })  
+      return expect(buildStep.execute(buildConfiguration, monorepoProject))
+        .rejects.toThrowError(`The tsconfig.json option '${property}' cannot be set, because it will be overridden by Thrasher.`)
+    })
+
+    it('handles multiple errors in tsconfig.json', () => {
+      throw new Error('not implemented')
+    })
 
     it('generates TS path mappings with expected keys', () => {
-      const rootConfig = generateRootTsConfig(monorepoProject)
-      const paths = get(rootConfig, ['compilerOptions', 'paths'])
-  
-      expect(sortBy(keys(paths))).toEqual(['@scope/package-two', 'package-one'])
+      return buildStep.execute(buildConfiguration, monorepoProject)
+        .then(() => {
+          expect(mockFs.writeFile).toHaveBeenCalledTimes(2)
+          expect(mockFs.__getWrittenJsonFileContents('/app/packages/package-one-dir/tsconfig.json')).toMatchObject({
+
+          })
+          mockFs.__assertJsonFileWasWritten('/app/packages/package-one-dir/tsconfig.json', {
+            extends: 'abc/not/implemented',
+            compilerOptions: {
+              declarationDir: './dist/module',
+              outDir: './dist/module',
+              rootDir: './src',
+            },
+            include: ['src'],
+          })
+        })
     })
   
     it('generates TS path mappings for non-scoped packages', () => {

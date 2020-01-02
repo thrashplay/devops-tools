@@ -33,10 +33,15 @@
     "traceResolution": false,
     "paths": {
       "@thrashplay/*": ["*/src"]
-    }
+    },
+    "typeRoots": [
+      "./node_modules/@types",
+      "./packages/node_modules/@types",
+      "./@types"
+    ]
   },
   "exclude": [
     "**/dist",
-    "**/node_modules/",
+    "**/node_modules/"
   ]
 }

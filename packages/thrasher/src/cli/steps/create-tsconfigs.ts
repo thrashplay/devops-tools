@@ -1,7 +1,7 @@
 import path from 'path'
+import { promises as fs } from 'fs'
 
-import fs from 'fs-extra'
-import { has, merge, replace } from 'lodash'
+import { has, merge } from 'lodash'
 
 import { Project, PackageConfig } from '../../model'
 
@@ -45,15 +45,15 @@ const baseTsconfig = {
 
 // maps the named package dependency to a local Typescript reference
 // returns undefined if no such reference is needed
-const mapDependencyToTypescriptReference = (dependencyName: string) => {
-  return dependencyName.startsWith('@thrashplay/')
-    ? replace(dependencyName, '@thrashplay/', '')
-    : undefined
-}
+// const mapDependencyToTypescriptReference = (dependencyName: string) => {
+//   return dependencyName.startsWith('@thrashplay/')
+//     ? replace(dependencyName, '@thrashplay/', '')
+//     : undefined
+// }
 
-const readJsonFile = (file: string) => {
-  return JSON.parse(fs.readFileSync(file).toString())
-}
+// const readJsonFile = (file: string) => {
+//   return JSON.parse(fs.readFileSync(file).toString())
+// }
 
 class CreatePackageTsConfigBuildStep extends PackageBuildStep {
   protected beforePackages = (_configuration: BuildConfiguration, project: Project) => {
@@ -90,8 +90,8 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
           rootTsConfig,
           tsconfigExists ? { extends: '../tsconfig.json' } : {},
         )
-        zomg mkdirsa needs to be mocked better
-        return fs.mkdirs(path.resolve(project.projectRootDir, '.thrasher'))
+
+        return fs.mkdir(path.resolve(project.projectRootDir, '.thrasher'), { recursive: true })
           .then(() => fs.writeFile(path.resolve(project.projectRootDir, '.thrasher', 'tsconfig.json'), JSON.stringify(config)))
           .then(() => true)
       })
@@ -111,7 +111,7 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
       ...baseTsconfig,
     //   references,
     }
-    
+
     return fs.writeFile(path.resolve(pkg.directory, 'tsconfig.json'), JSON.stringify(finalTsConfig, null, 2))
     // return Promise.resolve()
   }

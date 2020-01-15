@@ -1,11 +1,9 @@
 import path from 'path'
-import fs from 'fs'
-
-import { isUndefined } from 'lodash'
 
 import { loadJson } from '../structure/directory-walker'
 
 import { PackageJson, validatePackageJson } from './npm-package-json'
+import { IoHelper } from './io-helper'
 
 export interface PackageConfigFactory {
   createPackageConfig: (packageDirectory: string) => Promise<PackageConfig>
@@ -31,6 +29,8 @@ const validatePackageConfig = ([directory, unvalidatedPackageJson]: [string, any
  * read/write access to the files in that package.
  */
 export class PackageConfig {
+  private readonly ioHelper: IoHelper
+  
   /**
    * Static factory function for creating packages for a directory. The directory must contain
    * a `package.json` file.
@@ -45,27 +45,39 @@ export class PackageConfig {
   public readonly name: string
   public constructor(public readonly directory: string, public readonly packageJson: PackageJson) { 
     this.name = this.packageJson.name
+    this.ioHelper = new IoHelper(this.directory)
   }
 
-  public readFile = (packageRelativePath: string): Promise<string> => new Promise((resolve, reject) => {
-    fs.readFile(path.join(this.directory, packageRelativePath), 'utf8', (error, data) => {
-      if (isUndefined(error)) {
-        resolve(data.toString())
-      } else {
-        reject(error)
-      }
-    })
-  })
+  /**
+   * 
+   */
+  public pathExists = (packageRelativePath: string) => this.ioHelper.pathExists(packageRelativePath)
 
-  public readJsonFile = (packageRelativePath: string): Promise<object> => {
-    return this.readFile(packageRelativePath)
-      .then((fileContents) => JSON.parse(fileContents))
-      .catch((err) => {
-        if (err instanceof SyntaxError) {
-          throw new Error(`File '${packageRelativePath}' does not contain valid JSON. (In package: ${this.directory})`)
-        }
-        throw err
-      })
+  /**
+   * Reads a file, relative to the package's root directory.
+   */
+  public readFile = (packageRelativePath: string) => this.ioHelper.readFile(packageRelativePath)
+
+  /**
+   * Reads a file, relative to the package's root directory, and attempts to parse it as JSON.
+   * Will reject the promise if the specified path is not a valid JSON file.
+   */
+  public readJsonFile = (packageRelativePath: string) => this.ioHelper.readJsonFile(packageRelativePath)
+
+  /**
+   * Writes a file, relative to the package's root directory. If the directory tree containing the file
+   * does not exist, it will be created.
+   */
+  public writeFile = (packageRelativePath: string, contents: string) => {
+    return this.ioHelper.writeFile(packageRelativePath, contents)
+  }
+
+  /**
+   * Writes a value as JSON into a file, relative to the package's root directory. If the directory 
+   * tree containing the file  does not exist, it will be created.
+   */
+  public writeJsonFile = (packageRelativePath: string, contents: any) => {
+    return this.ioHelper.writeJsonFile(packageRelativePath, contents)
   }
 }
 

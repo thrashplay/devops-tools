@@ -1,14 +1,14 @@
 import path from 'path'
 import { promises as fs } from 'fs'
 
-import { has, merge } from 'lodash'
+import { chain, concat, find, has, isEmpty, isNil, isUndefined, merge, negate, replace } from 'lodash'
 
 import { Project, PackageConfig } from '../../model'
 
 import { BuildConfiguration, PackageBuildStep } from './build-step'
 
 //////////
-// It is an error if tsconfig.json declares any of the following:
+// It is an error if the user-provided tsconfig.json declares any of the following:
 //
 // "baseUrl": "<anything>",
 // "composite": false,
@@ -21,7 +21,6 @@ import { BuildConfiguration, PackageBuildStep } from './build-step'
 //////////
 
 const rootTsConfig = {
-  extends: './tsconfig.json',
   compilerOptions: {
     baseUrl: '.',
     composite: true,
@@ -33,48 +32,64 @@ const rootTsConfig = {
   },
 }
 
-const baseTsconfig = {
-  extends: '../../tsconfig.json',
+const basePackageTsConfig = {
   compilerOptions: {
-    declarationDir: './dist/module',
-    outDir: './dist/module',
+    declarationDir: './lib',
+    outDir: './lib',
     rootDir: './src',
   },
   include: ['src'],
 }
 
-// maps the named package dependency to a local Typescript reference
-// returns undefined if no such reference is needed
-// const mapDependencyToTypescriptReference = (dependencyName: string) => {
-//   return dependencyName.startsWith('@thrashplay/')
-//     ? replace(dependencyName, '@thrashplay/', '')
-//     : undefined
-// }
+/**
+ * Converts a path to a format suitable for a tsconfig file, by replacing all directory separators with '/'
+ */
+const toTsConfigSeparators = (path: string) => replace(path, /\\/g, '/')
 
-// const readJsonFile = (file: string) => {
-//   return JSON.parse(fs.readFileSync(file).toString())
-// }
+/**
+ * Gets the correct tsconfig `extends` path for the specified package.
+ * 
+ * For a monorepo, if there is a user-provided, package-local 'tsconfig.json' file, then the extends path will 
+ * extend that. If there is no such file, then the extends path will extend the monorepo project root's Thrasher 
+ * tsconfig.json.
+ * 
+ * TODO: For a standalone project, TBD
+ */
+const getExtendsPathForPackage = (project: Project, packageConfig: PackageConfig) => {
+  const packageThrasherDir = path.join(packageConfig.directory, '.thrasher')
+  const projectThrasherDir = path.join(project.projectRootDir, '.thrasher')
+  const packageRelativeDir = path.relative(packageThrasherDir, packageConfig.directory)
+  const projectRelativeDir = path.relative(packageThrasherDir, projectThrasherDir)
+
+  return packageConfig.pathExists('tsconfig.json')
+    ? toTsConfigSeparators(path.join(packageRelativeDir, 'tsconfig.json'))
+    : toTsConfigSeparators(path.join(projectRelativeDir, 'tsconfig.json'))
+}
+
+const getReferencesForPackage = (project: Project, packageConfig: PackageConfig) => {
+  const mapNameToPackageFromProject = (dependencyName: string) => find(project.packages, (packageConfig) => packageConfig.name === dependencyName)
+
+  const createReferenceForPackage = (otherPackage: PackageConfig) => {
+    const currentConfigDirectory = path.join(packageConfig.directory, '.thrasher')
+    const dependencyConfigDirectory = path.join(otherPackage.directory, '.thrasher')
+    return {
+      path: toTsConfigSeparators(path.relative(currentConfigDirectory, dependencyConfigDirectory)),
+    }
+  }
+
+  const references = chain(packageConfig.packageJson.dependencies)
+    .map((_version, name) => name)
+    .map(mapNameToPackageFromProject)
+    .filter(negate(isUndefined))
+    .map(createReferenceForPackage)
+    .value()
+
+  return isEmpty(references) ? undefined : references
+}
 
 class CreatePackageTsConfigBuildStep extends PackageBuildStep {
   protected beforePackages = (_configuration: BuildConfiguration, project: Project) => {
-    const assertCompilerOptionNotSet = (userBaseTsConfig: object, property: string) => {
-      if (has(userBaseTsConfig, property)) {
-        throw new Error(`The tsconfig.json option '${property}' cannot be set, because it will be overridden by Thrasher.`)
-      }
-    }
-
     return project.readJsonFile('tsconfig.json')
-      .then((tsconfig) => {
-        assertCompilerOptionNotSet(tsconfig, 'baseUrl')
-        assertCompilerOptionNotSet(tsconfig, 'composite')
-        assertCompilerOptionNotSet(tsconfig, 'declaration')
-        assertCompilerOptionNotSet(tsconfig, 'isolatedModules')
-        assertCompilerOptionNotSet(tsconfig, 'module')
-        assertCompilerOptionNotSet(tsconfig, 'noEmit')
-        assertCompilerOptionNotSet(tsconfig, 'noEmitOnError')
-        assertCompilerOptionNotSet(tsconfig, 'paths')
-        return true
-      })
       .catch((err) => {
         if (err instanceof SyntaxError) {
           // invalid JSON found, this is a real error
@@ -82,38 +97,71 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
         }
 
         // assume file could not be opened, so we indicate there was none
-        return false
+        return null
       })
-      .then((tsconfigExists) => {
+      .then((tsconfig) => {
+        if (!isNil(tsconfig)) {
+          this.assertTsConfigIsValid(path.resolve(project.projectRootDir, 'tsconfig.json'), tsconfig)
+        }
+        
         const config = merge(
           {},
           rootTsConfig,
-          tsconfigExists ? { extends: '../tsconfig.json' } : {},
+          !isNil(tsconfig) ? { extends: '../tsconfig.json' } : {},
         )
 
         return fs.mkdir(path.resolve(project.projectRootDir, '.thrasher'), { recursive: true })
-          .then(() => fs.writeFile(path.resolve(project.projectRootDir, '.thrasher', 'tsconfig.json'), JSON.stringify(config)))
+          .then(() => Promise.all(concat(
+            project.writeJsonFile(path.join('.thrasher', 'tsconfig.json'), config),
+          )))
           .then(() => true)
       })
-
   }
 
-  protected executeForPackage(_configuration: BuildConfiguration, _project: Project, pkg: PackageConfig) {
-    // const packageJson = pkg.packageJson
-    // const references = chain(packageJson.dependencies)
-    //   .map((_version, name) => name)
-    //   .map(mapDependencyToTypescriptReference)
-    //   .filter((reference) => !isUndefined(reference))
-    //   .map((reference) => ({ path: `../${reference}` }))
-    //   .value()
+  protected executeForPackage(_configuration: BuildConfiguration, project: Project, packageConfig: PackageConfig) {
+    return packageConfig.readJsonFile('tsconfig.json')
+      .catch((err) => {
+        if (err instanceof SyntaxError) {
+          // invalid JSON found, this is a real error
+          throw err
+        }
 
-    const finalTsConfig = {
-      ...baseTsconfig,
-    //   references,
+        // assume file could not be opened, so we indicate there was none
+        return null
+      })
+      .then((tsconfig) => {
+        if (!isNil(tsconfig)) {
+          this.assertTsConfigIsValid(path.resolve(packageConfig.directory, 'tsconfig.json'), tsconfig)
+        }
+        
+        const packageTsConfig = merge(
+          {},
+          basePackageTsConfig,
+          { 
+            extends: getExtendsPathForPackage(project, packageConfig),
+            references: getReferencesForPackage(project, packageConfig),
+          },
+        )
+    
+        return packageConfig.writeJsonFile(path.join('.thrasher', 'tsconfig.json'), packageTsConfig)
+      })
+  }
+
+  private assertTsConfigIsValid = (tsconfigPath: string, tsconfig: object) => {
+    const assertCompilerOptionNotSet = (userBaseTsConfig: object, property: string) => {
+      if (has(userBaseTsConfig, property)) {
+        throw new Error(`Error in ${tsconfigPath}: The tsconfig.json option '${property}' cannot be set, because it will be overridden by Thrasher.`)
+      }
     }
 
-    return fs.writeFile(path.resolve(pkg.directory, 'tsconfig.json'), JSON.stringify(finalTsConfig, null, 2))
-    // return Promise.resolve()
+    assertCompilerOptionNotSet(tsconfig, 'baseUrl')
+    assertCompilerOptionNotSet(tsconfig, 'composite')
+    assertCompilerOptionNotSet(tsconfig, 'declaration')
+    assertCompilerOptionNotSet(tsconfig, 'isolatedModules')
+    assertCompilerOptionNotSet(tsconfig, 'module')
+    assertCompilerOptionNotSet(tsconfig, 'noEmit')
+    assertCompilerOptionNotSet(tsconfig, 'noEmitOnError')
+    assertCompilerOptionNotSet(tsconfig, 'paths')
   }
 }
 

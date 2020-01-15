@@ -1,6 +1,3 @@
-import path from 'path'
-
-import fs from 'fs-extra'
 import { defaultTo, find, isEqual, isNil, isUndefined, map } from 'lodash'
 
 import { createProjectStructure as standalone } from '../structure/create-project-standalone'
@@ -8,6 +5,7 @@ import { createProjectStructure as lerna } from '../structure/create-project-ler
 
 import { createPackageConfigFactory, PackageConfigFactory } from './package-config'
 import { PackageConfig } from './package-config'
+import { IoHelper } from './io-helper'
 
 export interface ProjectFactory {
   createProject: (fromDir: string) => Promise<Project>
@@ -18,6 +16,8 @@ export interface ProjectFactoryOptions {
 }
 
 export class Project {
+  private readonly ioHelper: IoHelper
+
   constructor(
     /** initial directory (cwd) of the build */
     readonly initialDir: string,
@@ -34,6 +34,8 @@ export class Project {
     if (!isMonorepo && !this.isProjectRoot(this.initialDir)) {
       throw new Error('For standalone projects, the initialDir must equal the projectRootDir.')
     }
+
+    this.ioHelper = new IoHelper(this.projectRootDir)
   }
 
   getPackageFromDir = (directory: string) => {
@@ -54,24 +56,36 @@ export class Project {
   }
 
   /**
+   * 
+   */
+  public pathExists = (projectRelativePath: string) => this.ioHelper.pathExists(projectRelativePath)
+
+  /**
    * Reads a file, relative to the project's root directory.
    */
-  public readFile = (projectRelativePath: string) => {
-    return fs.readFile(path.resolve(this.projectRootDir, projectRelativePath), 'utf8')
-  }
+  public readFile = (projectRelativePath: string) => this.ioHelper.readFile(projectRelativePath)
 
   /**
    * Reads a file, relative to the project's root directory, and attempts to parse it as JSON.
    * Will reject the promise if the specified path is not a valid JSON file.
    */
-  public readJsonFile = (packageRelativePath: string) => this.readFile(packageRelativePath)
-    .then((fileContents) => JSON.parse(fileContents))
-    .catch((err) => {
-      if (err instanceof SyntaxError) {
-        throw new Error(`File '${packageRelativePath}' does not contain valid JSON. (In package: ${this.directory})`)
-      }
-      throw err
-    })
+  public readJsonFile = (projectRelativePath: string) => this.ioHelper.readJsonFile(projectRelativePath)
+
+  /**
+   * Writes a file, relative to the project's root directory. If the directory tree containing the file
+   * does not exist, it will be created.
+   */
+  public writeFile = (projectRelativePath: string, contents: string) => {
+    return this.ioHelper.writeFile(projectRelativePath, contents)
+  }
+
+  /**
+   * Writes a value as JSON into a file, relative to the project's root directory. If the directory tree 
+   * containing the file does not exist, it will be created.
+   */
+  public writeJsonFile = (projectRelativePath: string, contents: any) => {
+    return this.ioHelper.writeJsonFile(projectRelativePath, contents)
+  }
 }
 
 const getProjectStructure = async (fromDirectory = process.cwd()) => {

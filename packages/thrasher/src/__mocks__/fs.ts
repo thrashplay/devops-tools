@@ -1,69 +1,64 @@
-import {
-  isNil,
-  isUndefined,
-  merge,
-} from 'lodash'
-import MemoryFs from 'metro-memory-fs'
-import { getSupportedCodeFixes } from 'typescript'
+import path from 'path'
 
-let cwd: string | undefined = undefined
+import { get, isFunction, isNil, merge } from 'lodash'
+import MemoryFS from 'metro-memory-fs'
 
-const fs = new MemoryFs({
-  cwd: () => isUndefined(cwd) ? process.cwd() : cwd,
-  platform: process.platform as 'posix' | 'win32',
-})
+let fs
 
-need to add platform-specific getSupportedCodeFixes, and ability to require different configurations
-see: https://github.com/facebook/metro/blob/7b4615080947c81ca9c7b73e1a7e5c5995e540e6/packages/metro/src/DeltaBundler/__tests__/resolver-test.js
+// function setMockFilesystem(object, platform) {
+//   reset(platform);
+//   const root = platform === 'win32' ? 'c:\\' : '/';
+//   mockDir(root, {...object});
+//   return root;
+// }
 
-export const __assertFileWasWritten = (filePath: string, fileContents: string) => {
-  expect(fs.existsSync(filePath)).toBe(true)
-  expect(fs.readFileSync(filePath, 'utf8')).toEqual(fileContents)
-}
+// function mockDir(dirPath, desc) {
+//   for (const entName in desc) {
+//     const ent = desc[entName];
+//     const entPath = path.join(dirPath, entName);
+//     if (typeof ent === 'string' || ent instanceof Buffer) {
+//       fs.writeFileSync(entPath, ent);
+//       continue;
+//     }
+//     if (typeof ent !== 'object') {
+//       throw new Error(require('util').format('invalid entity:', ent));
+//     }
+//     if (ent.SYMLINK != null) {
+//       fs.symlinkSync(ent.SYMLINK, entPath);
+//       continue;
+//     }
+//     fs.mkdirSync(entPath);
+//     mockDir(entPath, ent);
+//   }
+// }
 
-export const __assertJsonFileWasWritten = (filePath: string, fileContents: any) => {
-  expect(fs.existsSync(filePath)).toBe(true)
-
-  const jsonFileContent = fs.readFileSync(filePath, 'utf8')
-  expect(JSON.parse(jsonFileContent)).toEqual(fileContents)
-}
-
-export const __getWrittenFileContents = (filePath: string) => {
-  return fs.readFileSync(filePath, 'utf8')
-}
-
-export const __getWrittenJsonFileContents = (filePath: string) => {
-  const contents = __getWrittenFileContents(filePath)
-  return isNil(contents) ? undefined : JSON.parse(contents)
-}
-
-export const __removeMockFile = (path: string) => {
-  fs.unlinkSync(path)
-}
-
-export const __setCwd = (path: string | undefined) => {
-  cwd = path
-  
-  if (!isUndefined(path)) {
-    // metro-memory-fs requires creating whatever directory you use as the `cwd`
-    fs.mkdirSync(path, { recursive: true })
+function reset(platform: 'win32' | 'posix' = 'posix', cwdOverride?: string ) {
+  const resetPath = get(path, ['mock', 'reset'])
+  if (!isFunction(resetPath)) {
+    throw new Error('to use this "fs" module mock, you must also mock the "path" module')
   }
+  resetPath(platform)
+
+  const cwd = !isNil(cwdOverride)
+    ? cwdOverride
+    : platform === 'win32' ? 'c:\\' : '/'
+  
+  fs = new MemoryFS({
+    platform, 
+    cwd: () => cwd,
+  })
+  merge(mockFs, fs)
 }
 
-export const __setMockFile = (path: string, contents: string) => {
-  fs.writeFileSync(path, contents)
+const mockHelpers = {
+  __reset: reset,
 }
 
-export const __setMockJsonFile = (path: string, contents: any) => {
-  __setMockFile(path, JSON.stringify(contents))
-}
+const mockFs: any = {}
+merge(mockFs, mockHelpers)
 
-export const __clear = () => {
-  fs.reset()
-  cwd = undefined
-}
+reset()
 
-module.exports = merge({},
-  module.exports,
-  fs,
-)
+export type MockFs = MemoryFS & typeof mockHelpers
+
+module.exports = mockFs

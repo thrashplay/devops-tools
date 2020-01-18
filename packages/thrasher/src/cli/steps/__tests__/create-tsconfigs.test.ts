@@ -78,14 +78,26 @@ const createMonorepoConfigTests = (cwd: string, projectRootDir: string) => () =>
           .rejects.toThrowError(`Error in ${path.join(projectRootDir, 'tsconfig.json')}: The tsconfig.json option '${property}' cannot be set, because it will be overridden by Thrasher.`)
       })
     })
-  
-    it.skip('includes correct project-level tsconfig', () => {
-      throw new Error('not implemented')
+
+    it('includes correct project-level tsconfig', async () => {
+      await buildStep.execute(buildConfiguration, project)
+      assertJsonFile(path.resolve(projectRootDir, '.thrasher', 'tsconfig.json'), (contents) => {
+        expect(contents.compilerOptions).toStrictEqual({
+          baseUrl: '.',
+          composite: true,
+          declaration: true,
+          isolatedModules: true,
+          module: 'es6',
+          noEmit: true,
+          noEmitOnError: true,
+        })
+      })
     })
   })
 
   describe('package-level .thrasher/tsconfig.json files', () => {
     const packageTsConfig = {
+      extends: '../../../.thrasher/tsconfig.json',
       compilerOptions: {
         allowJs: true,
       },
@@ -104,30 +116,35 @@ const createMonorepoConfigTests = (cwd: string, projectRootDir: string) => () =>
         })
       })
   
-      it.each([
-        path.join(packagePath, '.thrasher', 'tsconfig.json'),
-        '../../../.thrasher/tsconfig.json',
-      ])('extends project-level tsconfig.json, if no package-level tsconfig.json exists', async (path: string, extendsPath: string) => {
+      it('extends project-level tsconfig.json, if no package-level tsconfig.json exists', async () => {
+        const tsconfigPath = path.join(packagePath, '.thrasher', 'tsconfig.json')
+        const expectedExtendsPath = '../../../.thrasher/tsconfig.json'
         await buildStep.execute(buildConfiguration, project)
-        assertJsonFile(path, (contents) => {
-          expect(contents.extends).toEqual(extendsPath)
+        assertJsonFile(tsconfigPath, (contents) => {
+          expect(contents.extends).toEqual(expectedExtendsPath)
         })
       })
-  
+
       it('throws an error when existing package-level tsconfig.json cannot be parsed', async () => {
         fs.writeFileSync(path.resolve(packagePath, 'tsconfig.json'), '{ garbage-that-isn\'t valid json: 132 } 12: 5')
         await expect(buildStep.execute(buildConfiguration, project))
           .rejects.toThrowError()
       })
-  
-      it.skip(' an error when existing package-level tsconfig.json does not extend the project-level tsconfig.json', async () => {
-        throw new Error('not implemented')
+     
+      it.each([
+        ['wrong extends path', { extends: '../the/wrong/path/tsconfig.json' }],
+        ['no extends path', { }],
+      ])('throws an error when existing package-level tsconfig.json does not extend the project-level tsconfig.json: %s', async (_testName: string, tsconfig: object) => {
+        fs.writeFileSync(path.join(packagePath, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2))
+
+        const expectedError = `Error in ${path.join(packagePath, 'tsconfig.json')}: The 'extends' option must be set, and must reference the Thrasher-generated root configuration: ../../../.thrasher/tsconfig.json`
+        await expect(buildStep.execute(buildConfiguration, project)).rejects.toThrowError(expectedError)
       })
-  
+
       it('include correct package-level tsconfig compiler options', async () => {
         await buildStep.execute(buildConfiguration, project)
         assertJsonFile(path.join(packagePath, '.thrasher', 'tsconfig.json'), (contents) => {
-          expect(contents.compilerOptions).toEqual({
+          expect(contents.compilerOptions).toStrictEqual({
             declarationDir: '../lib',
             outDir: '../lib',
             rootDir: '../src',
@@ -143,10 +160,11 @@ const createMonorepoConfigTests = (cwd: string, projectRootDir: string) => () =>
       })
     })
 
+    // this test assumes package '0' depends on package '1', and package '1' has no dependencies
     it.each([
       [
-        'package-one',
-        'c:\\app\\packages\\package-one-dir\\.thrasher\\tsconfig.json',
+        packageConfigs[0].name,
+        packageConfigs[0],
         [
           {
             path: '../../../other-packages-root/package-two-dir/.thrasher',
@@ -154,13 +172,13 @@ const createMonorepoConfigTests = (cwd: string, projectRootDir: string) => () =>
         ],
       ],
       [
-        'package-two',
-        'c:\\app\\other-packages-root\\package-two-dir\\.thrasher\\tsconfig.json',
+        packageConfigs[1].name,
+        packageConfigs[1],
         undefined,
       ],
-    ])('include correct tsconfig references: %s', async (_packageName: string, path: string, references?: object[]) => {
+    ])('include correct tsconfig references: %s', async (_packageName: string, packageConfig: PackageConfig, references?: object[]) => {
       await buildStep.execute(buildConfiguration, project)
-      assertJsonFile(path, (contents) => {
+      assertJsonFile(path.join(packageConfig.directory, '.thrasher', 'tsconfig.json'), (contents) => {
         expect(contents.references).toEqual(references)
       })
     })
@@ -188,7 +206,7 @@ const createStandaloneProjectConfigTests = (cwd: string, projectRootDir: string)
   const buildConfiguration = { initialDirectory: cwd }
   const buildStep = create()
 
-  const project = new Project(cwd, true, projectRootDir, [packageConfig])
+  const project = new Project(cwd, false, projectRootDir, [packageConfig])
 
   const rootTsConfig = fixtures.tsconfig.default
   const rootTsConfigString = JSON.stringify(rootTsConfig, null, 2)
@@ -202,6 +220,12 @@ const createStandaloneProjectConfigTests = (cwd: string, projectRootDir: string)
     })
   })
 
+  it('throws an error when existing tsconfig.json cannot be parsed', async () => {
+    fs.writeFileSync(path.join(projectRootDir, 'tsconfig.json'), '{ garbage-that-isn\'t valid json: 132 } 12: 5')
+    await expect(buildStep.execute(buildConfiguration, project))
+      .rejects.toThrowError()
+  })
+
   it('does not include extends property, when no tsconfig.json exists', async () => {
     await buildStep.execute(buildConfiguration, project)
     assertJsonFile(path.resolve(projectRootDir, '.thrasher', 'tsconfig.json'), (contents) => {
@@ -209,14 +233,29 @@ const createStandaloneProjectConfigTests = (cwd: string, projectRootDir: string)
     })
   })
 
-  it('throws an error when existing tsconfig.json cannot be parsed', async () => {
-    fs.writeFileSync(path.join(projectRootDir, 'tsconfig.json'), '{ garbage-that-isn\'t valid json: 132 } 12: 5')
-    await expect(buildStep.execute(buildConfiguration, project))
-      .rejects.toThrowError()
+  it('include correct standalone tsconfig compiler options', async () => {
+    await buildStep.execute(buildConfiguration, project)
+    assertJsonFile(path.join(projectRootDir, '.thrasher', 'tsconfig.json'), (contents) => {
+      expect(contents.compilerOptions).toStrictEqual({
+        baseUrl: '.',
+        composite: true,
+        declaration: true,
+        declarationDir: '../lib',
+        isolatedModules: true,
+        module: 'es6',
+        noEmit: true,
+        noEmitOnError: true,
+        outDir: '../lib',
+        rootDir: '../src',
+      })
+    })
   })
 
-  it.skip('includes correct project-level tsconfig', () => {
-    throw new Error('not implemented')
+  it('include correct tsconfig include array', async () => {
+    await buildStep.execute(buildConfiguration, project)
+    assertJsonFile(path.join(projectRootDir, '.thrasher', 'tsconfig.json'), (contents) => {
+      expect(contents.include).toEqual(['../src'])
+    })
   })
 
   describe('user-supplied forbidden properties generate an error', () => {
@@ -229,69 +268,6 @@ const createStandaloneProjectConfigTests = (cwd: string, projectRootDir: string)
     })
   })
 }
-
-// all this commented out stuff needs to be done still
-// and skipped tests unskipped
-
-// it('generates TS path mappings with expected keys', async () => {
-//   await buildStep.execute(buildConfiguration, monorepoProject)
-//   const tsconfigContents = fs.readFileSync('/app/packages/package-one-dir/tsconfig.json', 'utf8')
-//   expect(tsconfigContents).toEqual({
-//     extends: 'abc/not/implemented',
-//     compilerOptions: {
-//       declarationDir: './dist/module',
-//       outDir: './dist/module',
-//       rootDir: './src',
-//     },
-//     include: ['src'],
-//   })
-// })
-
-// it('generates TS path mappings for non-scoped packages', () => {
-//   const rootConfig = generateRootTsConfig(monorepoProject)
-//   const paths = get(rootConfig, ['compilerOptions', 'paths'])
-
-//   expect(get(paths, 'package-one')).toBe('packages/package-one-dir/src')
-// })
-
-// it('generates TS path mappings for scoped packages', () => {
-//   const rootConfig = generateRootTsConfig(monorepoProject)
-//   const paths = get(rootConfig, ['compilerOptions', 'paths'])
-
-//   expect(get(paths, '@scope/package-two')).toBe('other-packages-root/package-two-dir/src')
-// })
-
-// describe('includes static properties', () => {
-//   const rootConfig = generateRootTsConfig(monorepoProject)
-
-//   it('baseUrl', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'baseUrl'])).toBe('.')
-//   })
-
-//   it('composite', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'composite'])).toBe(true)
-//   })
-
-//   it('declaration', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'declaration'])).toBe(true)
-//   })
-
-//   it('isolatedModules', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'isolatedModules'])).toBe(true)
-//   })
-
-//   it('module', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'module'])).toBe('es6')
-//   })
-
-//   it('noEmit', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'noEmit'])).toBe(true)
-//   })
-
-//   it('noEmitOnError', () => {
-//     expect(get(rootConfig, ['compilerOptions', 'noEmitOnError'])).toBe(true)
-//   })
-// })
 
 describe('win32', () => {
   const cwd = path.join('c:', 'app')

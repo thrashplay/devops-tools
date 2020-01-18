@@ -1,7 +1,7 @@
 import path from 'path'
 import { promises as fs } from 'fs'
 
-import { chain, concat, find, has, isEmpty, isNil, isUndefined, merge, negate, replace } from 'lodash'
+import { chain, concat, find, get, has, isEmpty, isNil, isUndefined, merge, negate, replace } from 'lodash'
 
 import { Project, PackageConfig } from '../../model'
 
@@ -34,11 +34,11 @@ const rootTsConfig = {
 
 const basePackageTsConfig = {
   compilerOptions: {
-    declarationDir: './lib',
-    outDir: './lib',
-    rootDir: './src',
+    declarationDir: '../lib',
+    outDir: '../lib',
+    rootDir: '../src',
   },
-  include: ['src'],
+  include: ['../src'],
 }
 
 /**
@@ -101,13 +101,14 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
       })
       .then((tsconfig) => {
         if (!isNil(tsconfig)) {
-          this.assertTsConfigIsValid(path.resolve(project.projectRootDir, 'tsconfig.json'), tsconfig)
+          this.assertNoForbiddenProperties(path.resolve(project.projectRootDir, 'tsconfig.json'), tsconfig)
         }
         
         const config = merge(
           {},
           rootTsConfig,
-          !isNil(tsconfig) ? { extends: '../tsconfig.json' } : {},
+          project.isMonorepo ? {} : basePackageTsConfig,          // standalone packages include package-specific config in their 'root'
+          isNil(tsconfig) ? {} : { extends: '../tsconfig.json' },
         )
 
         return fs.mkdir(path.resolve(project.projectRootDir, '.thrasher'), { recursive: true })
@@ -119,6 +120,18 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
   }
 
   protected executeForPackage(_configuration: BuildConfiguration, project: Project, packageConfig: PackageConfig) {
+    const assertExtendsIsValid = (tsconfigPath: string, tsconfig: object) => {
+      const packageTsconfigDirectory = path.resolve(packageConfig.directory, '.thrasher')
+      const rootTsconfigFile = path.resolve(project.projectRootDir, '.thrasher', 'tsconfig.json')
+      const requiredPath = path.relative(packageTsconfigDirectory, rootTsconfigFile)
+      const requiredValue = toTsConfigSeparators(requiredPath)
+
+      if (get(tsconfig, 'extends') !== requiredValue) {
+        throw new Error(`Error in ${tsconfigPath}: The 'extends' option must be set, and must reference the Thrasher-generated root configuration: ${requiredValue}.`)
+      }
+    }
+
+    // todo: refactor the duplicated parsing/error handling code
     return packageConfig.readJsonFile('tsconfig.json')
       .catch((err) => {
         if (err instanceof SyntaxError) {
@@ -130,8 +143,14 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
         return null
       })
       .then((tsconfig) => {
+        // standalone projects (not monorepos) have no package-specific configuration files
+        if (!project.isMonorepo) {
+          return Promise.resolve()
+        }
+
         if (!isNil(tsconfig)) {
-          this.assertTsConfigIsValid(path.resolve(packageConfig.directory, 'tsconfig.json'), tsconfig)
+          this.assertNoForbiddenProperties(path.resolve(packageConfig.directory, 'tsconfig.json'), tsconfig)
+          assertExtendsIsValid(path.resolve(packageConfig.directory, 'tsconfig.json'), tsconfig)
         }
         
         const packageTsConfig = merge(
@@ -147,7 +166,7 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
       })
   }
 
-  private assertTsConfigIsValid = (tsconfigPath: string, tsconfig: object) => {
+  private assertNoForbiddenProperties = (tsconfigPath: string, tsconfig: object) => {
     const assertCompilerOptionNotSet = (userBaseTsConfig: object, property: string) => {
       if (has(userBaseTsConfig, property)) {
         throw new Error(`Error in ${tsconfigPath}: The tsconfig.json option '${property}' cannot be set, because it will be overridden by Thrasher.`)
@@ -157,11 +176,14 @@ class CreatePackageTsConfigBuildStep extends PackageBuildStep {
     assertCompilerOptionNotSet(tsconfig, 'baseUrl')
     assertCompilerOptionNotSet(tsconfig, 'composite')
     assertCompilerOptionNotSet(tsconfig, 'declaration')
+    assertCompilerOptionNotSet(tsconfig, 'declarationDir')
     assertCompilerOptionNotSet(tsconfig, 'isolatedModules')
     assertCompilerOptionNotSet(tsconfig, 'module')
     assertCompilerOptionNotSet(tsconfig, 'noEmit')
     assertCompilerOptionNotSet(tsconfig, 'noEmitOnError')
+    assertCompilerOptionNotSet(tsconfig, 'outDir')
     assertCompilerOptionNotSet(tsconfig, 'paths')
+    assertCompilerOptionNotSet(tsconfig, 'rootDir')
   }
 }
 
